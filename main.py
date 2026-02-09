@@ -1,3 +1,16 @@
+'''
+Some Notes from APM:
+
+1- ALways remember, you must not insert your **Token** in online platform for miss used
+2- Instead of raw path like MODEL_PATH , always with 'system' or 'os' library chck it exist and then start teelgram bot
+3- also use longer prompt (better)
+
+
+'''
+
+
+
+
 import asyncio
 import threading
 import re
