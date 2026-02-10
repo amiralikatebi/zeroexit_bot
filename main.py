@@ -34,7 +34,6 @@ from telegram.ext import (
     filters,
 )
 
-# ================= CONFIG =================
 
 BOT_TOKEN = "8297582534:AAGWEEks9OzkMwEdIzQ9Mvc9UdisHLH61lw"
 BOT_NAME = "zeroexit"
@@ -42,7 +41,6 @@ MODEL_PATH = "./llm/qwen2.5-7b-instruct-q4_k_m.gguf"
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# ================= FASTAPI =================
 
 app = FastAPI(title="ZeroExit AI")
 
@@ -62,14 +60,12 @@ llm = Llama(
     verbose=False
 )
 
-# ================= UTILS =================
 
 def clean_text(text: str) -> str:
     text = re.sub(r"\s+$", "", text)
     text = re.sub(r"[\.…]+$", "", text)
     return text.strip()
 
-# ================= IMAGE SEARCH =================
 
 def google_image_search(query: str):
     try:
@@ -85,32 +81,46 @@ def google_image_search(query: str):
     except:
         return None
 
-# ================= LLM STREAM =================
+
 
 def stream_answer(question: str):
-    prompt = f"""تو یک دستیار حرفه‌ای فارسی هستی.
-فقط فارسی جواب بده.
-کوتاه، دقیق و بدون توضیح اضافه.
+    prompt = f"""تو یک دستیار فارسی دقیق و حرفه‌ای هستی.
+قبل از پاسخ، سؤال را در ذهن خود تحلیل کن اما تحلیل را ننویس.
+پاسخ نهایی باید:
+- فقط فارسی باشد
+- کوتاه، شفاف و مفید باشد
+- حداکثر در ۲ تا ۳ جمله باشد
+- از توضیح اضافی پرهیز کند
+
+هرگز کلمات Human، User یا Assistant را ننویس.
+بعد از اتمام پاسخ، فوراً متوقف شو.
 
 سؤال:
 {question}
 
-پاسخ:
+پاسخ کوتاه:
 """
+
     for chunk in llm(
         prompt,
-        max_tokens=220,
-        temperature=0.4,
+        max_tokens=120,
+        temperature=0.45,
         top_p=0.9,
-        repeat_penalty=1.1,
+        repeat_penalty=1.15,
         stream=True,
-        stop=["\n\n"]
+        stop=[
+            "\nHuman",
+            "\nUser",
+            "\nAssistant",
+            "Human:",
+            "User:",
+            "Assistant:",
+            "\n\n",
+        ]
     ):
         token = chunk["choices"][0]["text"]
         if token:
             yield token
-
-# ================= TELEGRAM =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -132,7 +142,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        # ===== IMAGE MODE =====
+
         if text.startswith("عکس"):
             query = text.replace("عکس", "").strip() or text
             caption = clean_text("".join(stream_answer(query)))
@@ -148,7 +158,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text("❌ image not found")
 
-        # ===== STREAM TEXT MODE =====
         else:
             msg = await context.bot.send_message(
                 chat_id=chat_id,
@@ -162,8 +171,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             for token in stream_answer(text):
                 buffer += token
-
-                # هر 0.4 ثانیه یک آپدیت
                 if time.time() - last_update >= 0.4:
                     current = buffer.strip()
                     if current and current != last_sent:
@@ -183,11 +190,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stop_event.set()
         await typing_task
 
-# ================= RUN =================
-
 def run_fastapi():
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8010)
 
 def run_bot():
     tg = ApplicationBuilder().token(BOT_TOKEN).build()
